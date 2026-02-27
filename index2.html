@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TKD Tagger v1.7</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --red: #e94560; --blue: #3a8fd1; --green: #27ae60;
+    --bg: #0d0d14; --bg2: #13131f; --bg3: #1a1a2e;
+    --border: #252535; --text: #d0d0e0; --muted: #555570;
+  }
+  html, body { height: 100%; overflow: hidden; font-family: 'Inter', 'Segoe UI', Arial, sans-serif; background: var(--bg); color: var(--text); font-size: 13px; }
+
+  /* HEADER */
+  header {
+    height: 42px; background: var(--bg2); border-bottom: 2px solid var(--red);
+    display: flex; align-items: center; gap: 10px; padding: 0 12px; flex-shrink: 0;
+  }
+  .logo { font-size: 13px; font-weight: 800; letter-spacing: 2px; color: #fff; white-space: nowrap; display: flex; align-items: center; gap: 6px; }
+  .logo span { color: var(--red); }
+  #urlInput {
+    flex: 1; background: #0a0a12; border: 1px solid var(--border);
+    border-radius: 4px; padding: 5px 10px; color: #fff; font-size: 12px; outline: none;
+  }
+  #urlInput:focus { border-color: var(--red); }
+  #loadBtn { padding: 5px 16px; background: var(--red); color: #fff; border: none; border-radius: 4px; font-weight: 700; font-size: 12px; cursor: pointer; white-space: nowrap; }
+
+  /* LAYOUT */
+  .wrap { display: flex; height: calc(100vh - 42px); overflow: hidden; }
+
+  /* LEFT — видео + контролы + теггинг */
+  #left { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
+
+  /* VIDEO — занимает всё доступное пространство минус нижние панели */
+  #player-wrap { flex: 1; background: #000; overflow: hidden; min-height: 0; position: relative; }
+  #player { width: 100%; height: 100%; }
+
+  /* CONTROLS — компактная строка */
+  #controls {
+    height: 36px; background: var(--bg2); border-top: 1px solid var(--border);
+    display: flex; align-items: center; gap: 4px; padding: 0 8px; flex-shrink: 0;
+  }
+  .cbtn {
+    background: var(--bg3); border: 1px solid var(--border); color: var(--text);
+    padding: 3px 7px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: 600; white-space: nowrap;
+  }
+  .cbtn:hover { background: var(--border); color: #fff; }
+  #playBtn { width: 28px; height: 28px; padding: 0; display: flex; align-items: center; justify-content: center; font-size: 12px; }
+  #progressWrap { flex: 1; height: 4px; background: var(--border); border-radius: 2px; cursor: pointer; min-width: 40px; }
+  #progressFill { height: 100%; background: var(--red); border-radius: 2px; width: 0%; pointer-events: none; }
+  #timeDisp { font-size: 10px; color: var(--muted); white-space: nowrap; min-width: 68px; text-align: center; }
+  #speedDisp { font-size: 11px; font-weight: 700; color: var(--red); min-width: 24px; text-align: center; }
+  #anchorBtn { background: var(--red); border-color: var(--red); color: #fff; font-weight: 700; font-size: 11px; padding: 3px 10px; }
+  .kbd { background: rgba(255,255,255,.12); border-radius: 3px; padding: 1px 3px; font-size: 9px; font-family: monospace; }
+
+  /* TAG PANEL — компактная фиксированная высота */
+  #tag-panel {
+    height: 130px; flex-shrink: 0; background: var(--bg2);
+    border-top: 1px solid var(--border); padding: 7px 10px;
+    display: flex; flex-direction: column; gap: 5px; overflow: hidden;
+  }
+  .step-row { display: flex; align-items: center; gap: 6px; }
+  .step-progress { display: flex; align-items: center; flex: 1; }
+  .sp-dot {
+    width: 18px; height: 18px; border-radius: 50%; background: var(--bg3); border: 2px solid var(--border);
+    display: flex; align-items: center; justify-content: center; font-size: 7px; font-weight: 700; color: var(--muted); flex-shrink: 0; transition: all .2s;
+  }
+  .sp-dot.active { border-color: var(--red); color: var(--red); background: rgba(233,69,96,.1); }
+  .sp-dot.done { border-color: var(--green); background: var(--green); color: #fff; }
+  .sp-line { flex: 1; height: 2px; background: var(--border); margin: 0 2px; transition: background .2s; }
+  .sp-line.done { background: var(--green); }
+  #stepLabel { font-size: 10px; color: var(--muted); white-space: nowrap; margin-left: 6px; }
+  #backBtn { padding: 2px 7px; background: transparent; border: 1px solid var(--border); color: var(--muted); border-radius: 4px; cursor: pointer; font-size: 10px; display: none; flex-shrink: 0; }
+  #backBtn:hover { border-color: var(--red); color: var(--red); }
+
+  #step-btns { display: flex; gap: 5px; flex-wrap: wrap; align-items: center; min-height: 28px; }
+  .sbtn {
+    padding: 4px 11px; border-radius: 5px; border: 2px solid var(--border);
+    background: var(--bg3); color: var(--text); cursor: pointer; font-size: 11px; font-weight: 600; transition: all .15s;
+  }
+  .sbtn:hover { border-color: var(--red); color: #fff; }
+  .sbtn.sel-r { border-color: var(--red); background: rgba(233,69,96,.15); color: var(--red); }
+  .sbtn.sel-b { border-color: var(--blue); background: rgba(58,143,209,.15); color: var(--blue); }
+  .sbtn.sel-g { border-color: var(--green); background: rgba(39,174,96,.15); color: var(--green); }
+
+  .code-row { display: flex; align-items: center; gap: 8px; }
+  #codeDisp { font-size: 18px; font-weight: 800; color: var(--red); letter-spacing: 2px; min-width: 70px; }
+  #descDisp { font-size: 10px; color: var(--muted); flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  #saveBtn { padding: 4px 12px; background: var(--green); color: #fff; border: none; border-radius: 5px; cursor: pointer; font-weight: 700; font-size: 11px; display: none; flex-shrink: 0; }
+  #resetBtn { padding: 4px 8px; background: transparent; color: var(--muted); border: 1px solid var(--border); border-radius: 5px; cursor: pointer; font-size: 11px; flex-shrink: 0; }
+  #resetBtn:hover { color: var(--red); border-color: var(--red); }
+  #statusMsg { font-size: 10px; color: var(--red); font-style: italic; min-height: 12px; }
+
+  /* RIGHT — события */
+  #right {
+    width: 240px; flex-shrink: 0; display: flex; flex-direction: column;
+    background: var(--bg2); border-left: 1px solid var(--border);
+  }
+  #right-header {
+    height: 42px; padding: 0 12px; border-bottom: 1px solid var(--border);
+    display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;
+  }
+  #right-header span { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; color: var(--muted); }
+  #evCount { font-size: 22px; font-weight: 800; color: var(--red); }
+  #events-list { flex: 1; overflow-y: auto; padding: 7px; display: flex; flex-direction: column; gap: 6px; }
+  #events-list::-webkit-scrollbar { width: 3px; }
+  #events-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .ecard { background: var(--bg3); border-radius: 6px; padding: 8px; border-left: 3px solid var(--border); position: relative; }
+  .ecard.blue { border-left-color: var(--blue); }
+  .ecard.red { border-left-color: var(--red); }
+  .ecard-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px; }
+  .ecard-code { font-size: 13px; font-weight: 800; letter-spacing: 1px; }
+  .ecard-pts { font-size: 10px; font-weight: 600; padding: 1px 5px; border-radius: 8px; background: var(--bg2); }
+  .ecard-pts.plus { color: var(--green); }
+  .ecard-pts.miss { color: var(--muted); }
+  .ecard-pts.pen { color: var(--red); }
+  .ecard-time { font-size: 9px; color: var(--muted); margin-bottom: 2px; }
+  .ecard-desc { font-size: 10px; color: var(--muted); margin-bottom: 4px; line-height: 1.3; }
+  .ecard-link { font-size: 10px; color: #4a9eff; text-decoration: none; }
+  .ecard-link:hover { text-decoration: underline; }
+  .ecard-note { width: 100%; background: var(--bg); border: 1px solid var(--border); color: var(--text); font-size: 10px; padding: 3px 6px; margin-top: 4px; border-radius: 4px; resize: none; height: 26px; outline: none; font-family: inherit; }
+  .ecard-note:focus { border-color: var(--red); }
+  .del-btn { position: absolute; top: 6px; right: 6px; color: var(--muted); cursor: pointer; font-size: 10px; background: none; border: none; }
+  .del-btn:hover { color: var(--red); }
+  .empty-state { color: var(--muted); font-size: 11px; text-align: center; margin-top: 40px; line-height: 2.2; }
+
+  #right-footer { padding: 7px; flex-shrink: 0; border-top: 1px solid var(--border); }
+  #dlBtn { width: 100%; padding: 7px; border-radius: 5px; border: 1px solid var(--border); background: var(--bg3); color: var(--text); font-weight: 700; cursor: pointer; font-size: 11px; }
+  #dlBtn:hover { border-color: var(--red); color: var(--red); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">⚡ TKD TAGGER <span>V1.7</span></div>
+  <input type="text" id="urlInput" placeholder="Вставьте ссылку на YouTube">
+  <button id="loadBtn" onclick="loadVideo()">ЗАГРУЗИТЬ</button>
+</header>
+
+<div class="wrap">
+  <div id="left">
+    <div id="player-wrap">
+      <div id="player"></div>
+    </div>
+
+    <div id="controls">
+      <button class="cbtn" id="playBtn" onclick="togglePlay()">▶ Пуск</button>
+      <button class="cbtn" onclick="seekRel(-10)">◀◀ 10с</button>
+      <button class="cbtn" onclick="seekRel(-3)">◀ 3с</button>
+      <button class="cbtn" onclick="seekRel(3)">3с ▶</button>
+      <button class="cbtn" onclick="seekRel(10)">10с ▶▶</button>
+      <div id="progressWrap" onclick="seekClick(event)"><div id="progressFill"></div></div>
+      <div id="timeDisp">0:00 / 0:00</div>
+      <button class="cbtn" onclick="chSpeed(-1)" style="padding:3px 5px;">−</button>
+      <div id="speedDisp">1x</div>
+      <button class="cbtn" onclick="chSpeed(1)" style="padding:3px 5px;">+</button>
+      <button class="cbtn" id="anchorBtn" onclick="setAnchor()">📍 ЯКОРЬ <span class="kbd">Space</span></button>
+    </div>
+
+    <div id="tag-panel">
+      <div class="step-row">
+        <div class="step-progress" id="stepProgress"></div>
+        <span id="stepLabel">Нажмите ЯКОРЬ или Space</span>
+        <button id="backBtn" onclick="goBack()">◀ Назад</button>
+      </div>
+      <div id="step-btns"></div>
+      <div class="code-row">
+        <div id="codeDisp">—</div>
+        <div id="descDisp"></div>
+        <button id="saveBtn" onclick="saveEvent()">✅ СОХРАНИТЬ</button>
+        <button id="resetBtn" onclick="resetTag()">✖</button>
+      </div>
+      <div id="statusMsg"></div>
+    </div>
+  </div>
+
+  <div id="right">
+    <div id="right-header">
+      <span>СОБЫТИЯ</span>
+      <div id="evCount">0</div>
+    </div>
+    <div id="events-list">
+      <div class="empty-state">Событий пока нет.<br>Нажмите <strong>ЯКОРЬ</strong><br>во время просмотра.</div>
+    </div>
+    <div id="right-footer">
+      <button id="dlBtn" onclick="dlJSON()">⬇ СКАЧАТЬ JSON</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://www.youtube.com/iframe_api"></script>
+<script>
+let player, ready=false, vidId="", events=[];
+let anchorTime=0;
+const SPEEDS=[0.25,0.5,0.75,1,1.25,1.5,2];
+let spdIdx=3, progTimer=null, curStep=-1, sel={};
+
+const STEPS=[
+  {key:"fighter",label:"Боец",opts:[{code:"B",label:"🔵 Blue",cls:"sel-b"},{code:"R",label:"🔴 Red",cls:"sel-r"}]},
+  {key:"init",label:"Инициатива",opts:[{code:"A",label:"Атака"},{code:"C",label:"Контратака"},{code:"S",label:"Встречный"}]},
+  {key:"weapon",label:"Оружие",opts:[{code:"1",label:"Передняя"},{code:"2",label:"Задняя"},{code:"3",label:"Рука"},{code:"4",label:"Разворот"}]},
+  {key:"zone",label:"Зона",opts:[{code:"V",label:"Корпус"},{code:"H",label:"Голова"}]},
+  {key:"result",label:"Результат",opts:[{code:"1",label:"+1"},{code:"2",label:"+2"},{code:"3",label:"+3"},{code:"4",label:"+4"},{code:"0",label:"Мимо"},{code:"-",label:"Гам-джон"}]}
+];
+
+function onYouTubeIframeAPIReady(){
+  player=new YT.Player("player",{
+    height:"100%",width:"100%",videoId:"",
+    playerVars:{playsinline:1,rel:0,modestbranding:1,controls:0,enablejsapi:1,origin:window.location.origin},
+    events:{
+      onReady:()=>{ready=true;},
+      onStateChange:e=>{
+        document.getElementById("playBtn").textContent=e.data===YT.PlayerState.PLAYING?"⏸ Пауза":"▶ Пуск";
+        if(e.data===YT.PlayerState.PLAYING)startProg();else stopProg();
+      }
+    }
+  });
+}
+
+function loadVideo(){
+  const url=document.getElementById("urlInput").value.trim();
+  let id="";
+  try{const u=new URL(url);if(u.hostname.includes("youtu.be"))id=u.pathname.slice(1).split("?")[0];else id=u.searchParams.get("v")||"";}
+  catch(e){const m=url.match(/(?:v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/);if(m)id=m[1];}
+  if(!id){setStatus("⚠️ Неверная ссылка");return;}
+  vidId=id;
+  const tryLoad=()=>{if(ready){player.loadVideoById(vidId);setStatus("✅ Видео загружено");}else setTimeout(tryLoad,300);};
+  tryLoad();
+}
+
+function togglePlay(){if(!ready)return;player.getPlayerState()===YT.PlayerState.PLAYING?player.pauseVideo():player.playVideo();}
+function seekRel(s){if(!ready)return;player.seekTo(Math.max(0,player.getCurrentTime()+s),true);}
+function seekClick(e){if(!ready)return;player.seekTo((e.offsetX/document.getElementById("progressWrap").offsetWidth)*player.getDuration(),true);}
+function chSpeed(d){spdIdx=Math.max(0,Math.min(SPEEDS.length-1,spdIdx+d));if(ready)player.setPlaybackRate(SPEEDS[spdIdx]);document.getElementById("speedDisp").textContent=SPEEDS[spdIdx]+"x";}
+function startProg(){stopProg();progTimer=setInterval(()=>{if(!ready)return;const c=player.getCurrentTime()||0,d=player.getDuration()||1;document.getElementById("progressFill").style.width=(c/d*100)+"%";document.getElementById("timeDisp").textContent=fmt(c)+" / "+fmt(d);},400);}
+function stopProg(){if(progTimer){clearInterval(progTimer);progTimer=null;}}
+
+function setAnchor(){
+  if(!ready||!vidId){setStatus("⚠️ Сначала загрузите видео");return;}
+  anchorTime=Math.floor(player.getCurrentTime());
+  player.seekTo(Math.max(0,anchorTime-5),true);
+  spdIdx=1;player.setPlaybackRate(0.5);document.getElementById("speedDisp").textContent="0.5x";
+  player.playVideo();
+  curStep=0;sel={};renderStep();
+  setStatus("📍 Якорь: "+fmt(anchorTime));
+}
+
+function renderStep(){
+  const prog=document.getElementById("stepProgress");prog.innerHTML="";
+  STEPS.forEach((s,i)=>{
+    const dot=document.createElement("div");dot.className="sp-dot"+(i<curStep?" done":i===curStep?" active":"");dot.textContent=i<curStep?"✓":(i+1);prog.appendChild(dot);
+    if(i<STEPS.length-1){const l=document.createElement("div");l.className="sp-line"+(i<curStep?" done":"");prog.appendChild(l);}
+  });
+  if(curStep<0||curStep>=STEPS.length)return;
+  const step=STEPS[curStep];
+  document.getElementById("stepLabel").textContent="Шаг "+(curStep+1)+": "+step.label;
+  document.getElementById("backBtn").style.display=curStep>0?"inline-block":"none";
+  document.getElementById("saveBtn").style.display="none";
+  const c=document.getElementById("step-btns");c.innerHTML="";
+  step.opts.forEach(opt=>{
+    const b=document.createElement("button");b.className="sbtn";
+    if(sel[step.key]===opt.code)b.classList.add(opt.cls||"sel-g");
+    b.textContent=opt.label;
+    b.onclick=()=>pick(step.key,opt.code,opt.cls||"sel-g");
+    c.appendChild(b);
+  });
+  updateCode();
+}
+
+function pick(key,code,selCls){
+  sel[key]=code;updateCode();
+  setTimeout(()=>{
+    curStep++;
+    if(curStep>=STEPS.length){
+      document.getElementById("step-btns").innerHTML='<span style="color:var(--green);font-size:11px;font-weight:600;">✅ Готово — нажмите СОХРАНИТЬ или Enter</span>';
+      document.getElementById("saveBtn").style.display="inline-block";
+      document.getElementById("backBtn").style.display="inline-block";
+      document.getElementById("stepLabel").textContent="Готово!";
+      const prog=document.getElementById("stepProgress");
+      prog.querySelectorAll(".sp-dot").forEach(d=>{d.className="sp-dot done";d.textContent="✓";});
+      prog.querySelectorAll(".sp-line").forEach(l=>l.classList.add("done"));
+    }else{renderStep();}
+  },200);
+}
+
+function goBack(){
+  if(curStep>=STEPS.length)curStep=STEPS.length-1;
+  else if(curStep>0)curStep--;
+  else return;
+  delete sel[STEPS[curStep].key];renderStep();
+}
+
+function updateCode(){
+  const f=sel.fighter||"",i=sel.init||"",w=sel.weapon||"",z=sel.zone||"",r=sel.result||"";
+  const code=f+i+w+z;const pts=r?(r==="-"?" −":r==="0"?" ×":" +"+r):"";
+  document.getElementById("codeDisp").textContent=(code||"—")+pts;
+  const MAP={A:"Атака",C:"Контратака",S:"Встречный","1":"Передняя","2":"Задняя","3":"Рука","4":"Разворот",V:"Корпус",H:"Голова"};
+  let parts=[];if(f)parts.push(f==="B"?"🔵":"🔴");[i,w,z].forEach(x=>{if(x&&MAP[x])parts.push(MAP[x]);});
+  if(r)parts.push(r==="-"?"Гам-джон":r==="0"?"Мимо":"+"+r+" балл(а)");
+  document.getElementById("descDisp").textContent=parts.join(" → ");
+}
+
+function saveEvent(){
+  if(STEPS.some(s=>!sel[s.key])){setStatus("⚠️ Заполните все шаги!");return;}
+  const pts=sel.result==="-"?-1:parseInt(sel.result);
+  const code=sel.fighter+sel.init+sel.weapon+sel.zone;
+  events.push({id:Date.now(),fighter:sel.fighter==="B"?"Blue":"Red",time:anchorTime,code,points:pts,
+    desc:document.getElementById("descDisp").textContent,
+    link:"https://www.youtube.com/watch?v="+vidId+"&t="+Math.max(0,anchorTime-3)+"s",comment:""});
+  spdIdx=3;if(ready)player.setPlaybackRate(1);document.getElementById("speedDisp").textContent="1x";
+  renderEvents();resetTag();setStatus("✅ Сохранено! Space — следующий эпизод.");
+}
+
+function resetTag(){
+  curStep=-1;sel={};
+  document.getElementById("step-btns").innerHTML="";
+  document.getElementById("codeDisp").textContent="—";
+  document.getElementById("descDisp").textContent="";
+  document.getElementById("saveBtn").style.display="none";
+  document.getElementById("backBtn").style.display="none";
+  document.getElementById("stepLabel").textContent="Нажмите ЯКОРЬ или Space";
+  const prog=document.getElementById("stepProgress");prog.innerHTML="";
+  STEPS.forEach((s,i)=>{
+    const dot=document.createElement("div");dot.className="sp-dot";dot.textContent=i+1;prog.appendChild(dot);
+    if(i<STEPS.length-1){const l=document.createElement("div");l.className="sp-line";prog.appendChild(l);}
+  });
+}
+
+function renderEvents(){
+  const list=document.getElementById("events-list");list.innerHTML="";
+  document.getElementById("evCount").textContent=events.length;
+  if(!events.length){list.innerHTML='<div class="empty-state">Событий пока нет.<br>Нажмите <strong>ЯКОРЬ</strong><br>во время просмотра.</div>';return;}
+  events.slice().reverse().forEach(ev=>{
+    const card=document.createElement("div");card.className="ecard "+ev.fighter.toLowerCase();
+    const icon=ev.fighter==="Blue"?"🔵":"🔴";
+    const ptsLabel=ev.points===-1?"Гам-джон":ev.points===0?"Мимо":"+"+ev.points;
+    const ptsCls=ev.points>0?"plus":ev.points===-1?"pen":"miss";
+    card.innerHTML=`<div class="ecard-top"><div class="ecard-code">${icon} ${ev.code}</div><span class="ecard-pts ${ptsCls}">${ptsLabel}</span></div>
+      <div class="ecard-time">${fmt(ev.time)}</div>
+      <div class="ecard-desc">${ev.desc}</div>
+      <a class="ecard-link" href="${ev.link}" target="_blank">▶ Смотреть эпизод</a>
+      <textarea class="ecard-note" placeholder="Заметка..." onchange="updNote(${ev.id},this.value)">${ev.comment}</textarea>
+      <button class="del-btn" onclick="delEv(${ev.id})">✕</button>`;
+    list.appendChild(card);
+  });
+}
+
+function updNote(id,v){const e=events.find(x=>x.id===id);if(e)e.comment=v;}
+function delEv(id){if(confirm("Удалить?")){events=events.filter(x=>x.id!==id);renderEvents();}}
+
+document.addEventListener("keydown",e=>{
+  if(e.target.tagName==="INPUT"||e.target.tagName==="TEXTAREA")return;
+  if(e.code==="Space"){e.preventDefault();setAnchor();return;}
+  if(e.code==="Enter"){e.preventDefault();if(document.getElementById("saveBtn").style.display!=="none")saveEvent();return;}
+  if(e.code==="Escape"){e.preventDefault();resetTag();return;}
+  if(e.code==="Backspace"){e.preventDefault();goBack();return;}
+  if(curStep>=0&&curStep<STEPS.length){
+    const step=STEPS[curStep],k=e.key.toUpperCase();
+    const opt=step.opts.find(o=>o.code===k);
+    if(opt){e.preventDefault();pick(step.key,opt.code,opt.cls||"sel-g");}
+  }
+});
+
+function setStatus(m){document.getElementById("statusMsg").textContent=m;}
+function fmt(s){s=Math.floor(s||0);return Math.floor(s/60)+":"+String(s%60).padStart(2,"0");}
+function dlJSON(){const blob=new Blob([JSON.stringify({videoId:vidId,total:events.length,events},null,2)],{type:"application/json"});const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="tkd_analysis.json";a.click();}
+
+resetTag();
+</script>
+</body>
+</html>
