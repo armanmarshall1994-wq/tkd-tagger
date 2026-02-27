@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TKD Tagger v1.5 | Manual Mode</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; background: #0a0a0a; color: #e0e0e0; height: 100vh; display: flex; flex-direction: column; }
+    header { background: #161625; padding: 10px 20px; display: flex; align-items: center; gap: 15px; border-bottom: 2px solid #e94560; }
+    header h1 { font-size: 16px; color: #e94560; text-transform: uppercase; letter-spacing: 2px; }
+    #urlInput { flex: 1; padding: 8px 12px; border-radius: 4px; border: 1px solid #333; background: #000; color: #fff; }
+    #loadBtn { padding: 8px 15px; background: #e94560; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+    .main { display: flex; flex: 1; overflow: hidden; }
+    #left { flex: 2.5; display: flex; flex-direction: column; padding: 15px; gap: 10px; }
+    #player-container { width: 100%; aspect-ratio: 16/9; background: #000; border-radius: 8px; overflow: hidden; pointer-events: none; }
+    #display-panel { display: flex; gap: 15px; background: #161625; padding: 15px; border-radius: 8px; border: 1px solid #333; align-items: center; cursor: pointer; }
+    .display-box { flex: 1; }
+    .display-label { font-size: 10px; color: #888; text-transform: uppercase; margin-bottom: 4px; }
+    #currentFighter { font-size: 24px; font-weight: bold; }
+    #currentFighter.blue { color: #3498db; }
+    #currentFighter.red { color: #e74c3c; }
+    #currentCode { font-size: 32px; font-weight: bold; color: #e94560; letter-spacing: 3px; }
+    #statusMsg { font-size: 12px; color: #aaa; font-style: italic; }
+    #controls-hint { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; background: #111; padding: 12px; border-radius: 8px; font-size: 11px; }
+    .hint-group b { color: #e94560; display: block; margin-bottom: 4px; font-size: 10px; }
+    .hint-item { margin-bottom: 2px; color: #ccc; }
+    .hint-item span { color: #fff; background: #333; padding: 1px 4px; border-radius: 3px; font-family: monospace; }
+    #right { flex: 1; display: flex; flex-direction: column; background: #111; border-left: 1px solid #222; min-width: 320px; }
+    #rightHeader { padding: 15px; background: #161625; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #222; }
+    #eventsList { flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+    .event-card { background: #1a1a1a; border-radius: 6px; padding: 10px; border-left: 4px solid #444; position: relative; }
+    .event-card.blue { border-left-color: #3498db; }
+    .event-card.red { border-left-color: #e74c3c; }
+    .event-card .time { position: absolute; top: 10px; right: 10px; font-size: 10px; color: #666; }
+    .event-card .code { font-size: 16px; font-weight: bold; margin-bottom: 4px; }
+    .event-card .desc { font-size: 11px; color: #aaa; margin-bottom: 8px; }
+    .event-card a { font-size: 10px; color: #4a9eff; text-decoration: none; }
+    .event-card textarea { width: 100%; background: #000; border: 1px solid #333; color: #ccc; font-size: 10px; padding: 5px; margin-top: 8px; border-radius: 4px; }
+    .delete-btn { position: absolute; bottom: 10px; right: 10px; color: #ff4d4d; cursor: pointer; font-size: 10px; text-decoration: underline; }
+    #actions { padding: 10px; display: flex; gap: 10px; }
+    .action-btn { flex: 1; padding: 10px; border-radius: 4px; border: 1px solid #e94560; background: transparent; color: #e94560; font-weight: bold; cursor: pointer; font-size: 12px; }
+    .action-btn:hover { background: #e94560; color: #fff; }
+    #focusOverlay { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #e94560; color: white; padding: 10px 20px; border-radius: 20px; font-size: 13px; font-weight: bold; display: none; z-index: 999; }
+  </style>
+</head>
+<body>
+
+<div id="focusOverlay">⌨️ РЕЖИМ РАЗМЕТКИ АКТИВЕН</div>
+
+<header>
+  <h1>⚡ TKD Tagger v1.5</h1>
+  <input type="text" id="urlInput" placeholder="Вставьте ссылку на YouTube">
+  <button id="loadBtn" onclick="loadVideo()">ЗАГРУЗИТЬ</button>
+</header>
+
+<div class="main">
+  <div id="left">
+    <div id="player-container"><div id="player"></div></div>
+    <div id="display-panel" onclick="grabFocus()">
+      <div class="display-box" style="max-width:120px;">
+        <div class="display-label">Боец</div>
+        <div id="currentFighter">_</div>
+      </div>
+      <div class="display-box">
+        <div class="display-label">Код действия</div>
+        <div id="currentCode">_</div>
+      </div>
+      <div id="statusMsg">Нажмите SPACE для начала разметки эпизода</div>
+    </div>
+    <div id="controls-hint" onclick="grabFocus()">
+      <div class="hint-group"><b>БОЕЦ</b><div class="hint-item"><span>B</span> Blue</div><div class="hint-item"><span>R</span> Red</div></div>
+      <div class="hint-group"><b>ИНИЦИАТИВА</b><div class="hint-item"><span>A</span> Атака</div><div class="hint-item"><span>C</span> Контра</div><div class="hint-item"><span>S</span> Встречный</div></div>
+      <div class="hint-group"><b>ОРУЖИЕ</b><div class="hint-item"><span>1</span> Передняя</div><div class="hint-item"><span>2</span> Задняя</div><div class="hint-item"><span>3</span> Рука</div><div class="hint-item"><span>4</span> Разворот</div></div>
+      <div class="hint-group"><b>ЗОНА</b><div class="hint-item"><span>V</span> Жилет</div><div class="hint-item"><span>H</span> Голова</div></div>
+      <div class="hint-group"><b>ЗАВЕРШЕНИЕ</b><div class="hint-item"><span>0-9</span> Баллы</div><div class="hint-item"><span>-</span> Гам-джон</div><div class="hint-item"><span>Enter</span> СОХРАНИТЬ</div><div class="hint-item"><span>Esc</span> СБРОС</div></div>
+    </div>
+  </div>
+
+  <div id="right">
+    <div id="rightHeader"><h3>СОБЫТИЯ</h3><span id="eventCount" style="color:#e94560;font-weight:bold;">0</span></div>
+    <div id="eventsList"></div>
+    <div id="actions"><button class="action-btn" onclick="downloadJSON()">СКАЧАТЬ JSON</button></div>
+  </div>
+</div>
+
+<!-- Скрытая кнопка для перехвата фокуса -->
+<button id="focusTrap" style="position:fixed;opacity:0;pointer-events:none;width:1px;height:1px;" tabindex="0"></button>
+
+<script src="https://www.youtube.com/iframe_api"></script>
+<script>
+  let player, events = [], currentCode = "", anchorTime = 0, videoId = "", isTagging = false, currentFighter = "";
+  let playerReady = false;
+
+  function onYouTubeIframeAPIReady() {
+    player = new YT.Player('player', {
+      height: '100%', width: '100%', videoId: '',
+      playerVars: { playsinline: 1, rel: 0, modestbranding: 1 },
+      events: { onReady: function() { playerReady = true; } }
+    });
+  }
+
+  function loadVideo() {
+    const url = document.getElementById("urlInput").value.trim();
+    let id = "";
+    if (url.includes("v=")) id = url.split("v=")[1].split("&")[0];
+    else if (url.includes("youtu.be/")) id = url.split("youtu.be/")[1].split("?")[0];
+    if (!id) return alert("Неверная ссылка на YouTube");
+    videoId = id;
+    player.loadVideoById(videoId);
+    setStatus("Видео загружено. Кликните на панель ниже и нажмите SPACE.");
+    setTimeout(grabFocus, 1500);
+  }
+
+  function grabFocus() {
+    document.getElementById("focusTrap").focus();
+  }
+
+  // Перехватываем ВСЕ нажатия клавиш на уровне document
+  document.addEventListener("keydown", handleKey, true);
+
+  function handleKey(e) {
+    // Игнорируем если фокус в input/textarea
+    if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
+
+    if (e.code === "Space") {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!playerReady) return;
+      anchorTime = Math.floor(player.getCurrentTime());
+      player.seekTo(Math.max(0, anchorTime - 5), true);
+      player.setPlaybackRate(0.5);
+      player.playVideo();
+      isTagging = true; currentCode = ""; currentFighter = "";
+      updateUI();
+      setStatus("⏱ Якорь: " + formatTime(anchorTime) + " | Выбери бойца: B (синий) / R (красный)");
+      showOverlay(true);
+      grabFocus();
+      return;
+    }
+
+    if (e.code === "Escape") {
+      e.preventDefault();
+      isTagging = false; currentCode = ""; currentFighter = "";
+      player.setPlaybackRate(1.0);
+      updateUI();
+      setStatus("Сброшено. Нажмите SPACE для нового якоря.");
+      showOverlay(false);
+      grabFocus();
+      return;
+    }
+
+    if (!isTagging) return;
+
+    e.preventDefault();
+    e.stopPropagation();
+
+    const key = e.key.toUpperCase();
+
+    if (key === "B") { currentFighter = "Blue"; updateUI(); setStatus("СИНИЙ ✓ | Вводи код: A/C/S + 1/2/3/4 + V/H + баллы + Enter"); grabFocus(); return; }
+    if (key === "R") { currentFighter = "Red"; updateUI(); setStatus("КРАСНЫЙ ✓ | Вводи код: A/C/S + 1/2/3/4 + V/H + баллы + Enter"); grabFocus(); return; }
+
+    if (!currentFighter) { setStatus("⚠️ Сначала выбери бойца: B или R"); grabFocus(); return; }
+
+    if ("ACS1234VH0123456789-".includes(key)) {
+      currentCode += key;
+      updateUI();
+      grabFocus();
+    }
+
+    if (e.code === "Enter") {
+      saveEvent();
+    }
+  }
+
+  function saveEvent() {
+    let points = 0;
+    if (currentCode.includes("-")) { points = -1; }
+    else { let d = currentCode.match(/\d+/g); if (d) points = parseInt(d.join("")); }
+
+    const event = {
+      id: Date.now(), fighter: currentFighter, time: anchorTime,
+      code: currentCode, points: points,
+      desc: decode(currentCode, points),
+      link: "https://www.youtube.com/watch?v=" + videoId + "&t=" + Math.max(0, anchorTime - 3) + "s",
+      comment: ""
+    };
+    events.push(event);
+    renderEvents();
+    player.setPlaybackRate(1.0);
+    isTagging = false;
+    showOverlay(false);
+    updateUI();
+    setStatus("✅ Сохранено! Нажмите SPACE для следующего эпизода.");
+    grabFocus();
+  }
+
+  function decode(code, pts) {
+    const m = { "A":"Атака","C":"Контра","S":"Встречный","1":"Передняя","2":"Задняя","3":"Рука","4":"Разворот","V":"Корпус","H":"Голова" };
+    let res = [];
+    for (let i = 0; i < code.length; i++) { if (m[code[i]]) res.push(m[code[i]]); }
+    if (code.includes("-")) res.push("Гам-джон");
+    return res.join(" → ") + (pts !== 0 ? " [" + pts + " балл]" : " [Мимо]");
+  }
+
+  function renderEvents() {
+    const list = document.getElementById("eventsList");
+    list.innerHTML = "";
+    events.slice().reverse().forEach(ev => {
+      const card = document.createElement("div");
+      card.className = "event-card " + ev.fighter.toLowerCase();
+      card.innerHTML = `
+        <div class="time">${formatTime(ev.time)}</div>
+        <div class="code">${ev.fighter === "Blue" ? "🔵" : "🔴"} ${ev.code}</div>
+        <div class="desc">${ev.desc}</div>
+        <a href="${ev.link}" target="_blank">▶ СМОТРЕТЬ ЭПИЗОД</a>
+        <textarea placeholder="Заметка..." onchange="updateComment(${ev.id}, this.value)">${ev.comment}</textarea>
+        <div class="delete-btn" onclick="deleteEvent(${ev.id})">удалить</div>
+      `;
+      list.appendChild(card);
+    });
+    document.getElementById("eventCount").textContent = events.length;
+  }
+
+  function updateComment(id, val) { let ev = events.find(e => e.id === id); if (ev) ev.comment = val; }
+  function deleteEvent(id) { if (confirm("Удалить?")) { events = events.filter(e => e.id !== id); renderEvents(); } }
+  function updateUI() {
+    const f = document.getElementById("currentFighter");
+    f.textContent = currentFighter || "_";
+    f.className = currentFighter.toLowerCase();
+    document.getElementById("currentCode").textContent = currentCode || "_";
+  }
+  function setStatus(m) { document.getElementById("statusMsg").textContent = m; }
+  function formatTime(s) { return Math.floor(s/60) + ":" + String(s%60).padStart(2,"0"); }
+  function showOverlay(show) { document.getElementById("focusOverlay").style.display = show ? "block" : "none"; }
+  function downloadJSON() {
+    const blob = new Blob([JSON.stringify({videoId, total: events.length, events}, null, 2)], {type:"application/json"});
+    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "tkd_analysis.json"; a.click();
+  }
+</script>
+</body>
+</html>
