@@ -1,198 +1,407 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>TKD Tagger v1.7</title>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Segoe UI', Arial, sans-serif; background: #0a0a0a; color: #e0e0e0; height: 100vh; max-height: 100vh; display: flex; flex-direction: column; overflow: hidden; font-size: 13px; }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TKD Tagger v1.7</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-    header { background: #161625; padding: 6px 14px; display: flex; align-items: center; gap: 10px; border-bottom: 2px solid #e94560; flex-shrink: 0; }
-    header h1 { font-size: 13px; color: #e94560; text-transform: uppercase; letter-spacing: 1px; white-space: nowrap; }
-    #urlInput { flex: 1; padding: 5px 10px; border-radius: 4px; border: 1px solid #333; background: #000; color: #fff; font-size: 12px; }
-    #loadBtn { padding: 5px 12px; background: #e94560; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 12px; white-space: nowrap; }
+  :root {
+    --red: #e94560;
+    --blue: #3a8fd1;
+    --green: #27ae60;
+    --bg: #0d0d14;
+    --bg2: #13131f;
+    --bg3: #1a1a2e;
+    --border: #252535;
+    --text: #d0d0e0;
+    --muted: #555570;
+  }
 
-    .main { display: flex; flex: 1; overflow: hidden; min-height: 0; }
+  body {
+    font-family: 'Inter', 'Segoe UI', Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    font-size: 13px;
+  }
 
-    /* ЛЕВАЯ КОЛОНКА */
-    #left { flex: 1; display: flex; flex-direction: column; padding: 8px; gap: 6px; overflow: hidden; min-width: 0; }
+  /* ── HEADER ── */
+  header {
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    padding: 8px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+  }
+  .logo { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+  .logo-icon { width: 28px; height: 28px; background: var(--red); border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 14px; }
+  .logo-text { font-size: 13px; font-weight: 700; letter-spacing: 1.5px; color: #fff; text-transform: uppercase; }
+  .logo-ver { font-size: 10px; color: var(--muted); margin-top: 1px; }
 
-    #player-wrapper { position: relative; width: 100%; background: #000; border-radius: 6px; overflow: hidden; flex-shrink: 0; }
-    #player-wrapper { aspect-ratio: 16/9; max-height: 38vh; }
-    #player { width: 100%; height: 100%; }
-    #player-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 38px; }
+  .url-wrap { flex: 1; display: flex; gap: 8px; }
+  #urlInput {
+    flex: 1;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 7px 14px;
+    color: #fff;
+    font-size: 12px;
+    outline: none;
+    transition: border-color .2s;
+  }
+  #urlInput:focus { border-color: var(--red); }
+  #loadBtn {
+    padding: 7px 20px;
+    background: var(--red);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-weight: 700;
+    font-size: 12px;
+    cursor: pointer;
+    letter-spacing: .5px;
+    transition: opacity .2s;
+    flex-shrink: 0;
+  }
+  #loadBtn:hover { opacity: .85; }
 
-    /* Контролы */
-    #custom-controls { display: flex; align-items: center; gap: 5px; background: #161625; padding: 5px 10px; border-radius: 6px; flex-shrink: 0; flex-wrap: nowrap; }
-    .ctrl-btn { background: #2a2a3a; border: 1px solid #444; color: #fff; padding: 3px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; white-space: nowrap; flex-shrink: 0; }
-    .ctrl-btn:hover { background: #e94560; border-color: #e94560; }
-    #progressBar { flex: 1; height: 5px; background: #333; border-radius: 3px; cursor: pointer; min-width: 40px; }
-    #progressFill { height: 100%; background: #e94560; border-radius: 3px; width: 0%; pointer-events: none; }
-    #timeDisplay { font-size: 10px; color: #aaa; white-space: nowrap; flex-shrink: 0; }
-    #speedDisplay { font-size: 11px; color: #e94560; font-weight: bold; min-width: 28px; text-align: center; flex-shrink: 0; }
-    #anchorBtn { background: #e94560; border-color: #e94560; font-weight: bold; }
-    #anchorBtn:hover { background: #c0392b; }
+  /* ── MAIN LAYOUT ── */
+  .main { display: flex; flex: 1; overflow: hidden; min-height: 0; gap: 0; }
 
-    /* Пошаговый ввод */
-    #tagging-panel { background: #161625; border-radius: 6px; padding: 8px 12px; flex-shrink: 0; }
+  /* ── LEFT ── */
+  #left {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 12px;
+    gap: 10px;
+    overflow: hidden;
+    min-width: 0;
+  }
 
-    #step-header { display: flex; align-items: center; gap: 6px; margin-bottom: 7px; }
-    .step-dot { width: 7px; height: 7px; border-radius: 50%; background: #333; flex-shrink: 0; }
-    .step-dot.active { background: #e94560; }
-    .step-dot.done { background: #27ae60; }
-    #step-label { font-size: 11px; color: #aaa; flex: 1; }
-    #backBtn { padding: 3px 10px; background: transparent; border: 1px solid #555; color: #aaa; border-radius: 4px; cursor: pointer; font-size: 11px; display: none; }
-    #backBtn:hover { border-color: #e94560; color: #e94560; }
+  /* Player */
+  #player-wrap {
+    position: relative;
+    width: 100%;
+    background: #000;
+    border-radius: 10px;
+    overflow: hidden;
+    flex-shrink: 0;
+    aspect-ratio: 16/9;
+    max-height: 36vh;
+    border: 1px solid var(--border);
+  }
+  #player { width: 100%; height: 100%; }
+  #player-overlay { position: absolute; inset: 0 0 40px 0; }
 
-    #step-buttons { display: flex; gap: 6px; flex-wrap: wrap; min-height: 32px; align-items: center; }
-    .step-btn { padding: 5px 12px; border-radius: 5px; border: 2px solid #444; background: #1a1a2e; color: #ccc; cursor: pointer; font-size: 12px; font-weight: bold; transition: all 0.12s; }
-    .step-btn:hover { border-color: #e94560; color: #fff; }
-    .step-btn.selected { border-color: #27ae60; background: #1a3a2a; color: #27ae60; }
-    .step-btn.fighter-b { border-color: #3498db; color: #3498db; }
-    .step-btn.fighter-b.selected { background: #1a2a3a; color: #fff; }
-    .step-btn.fighter-r { border-color: #e74c3c; color: #e74c3c; }
-    .step-btn.fighter-r.selected { background: #3a1a1a; color: #fff; }
+  /* Controls */
+  #controls {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 8px 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+  .cbtn {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 4px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 11px;
+    font-weight: 600;
+    transition: all .15s;
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+  .cbtn:hover { background: var(--border); color: #fff; }
+  #playBtn { width: 30px; height: 30px; padding: 0; display: flex; align-items: center; justify-content: center; font-size: 13px; }
+  #progressWrap { flex: 1; height: 4px; background: var(--border); border-radius: 2px; cursor: pointer; min-width: 0; }
+  #progressFill { height: 100%; background: var(--red); border-radius: 2px; width: 0%; pointer-events: none; transition: width .3s linear; }
+  #timeDisp { font-size: 10px; color: var(--muted); white-space: nowrap; flex-shrink: 0; min-width: 70px; text-align: center; }
+  .speed-wrap { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+  #speedDisp { font-size: 12px; font-weight: 700; color: var(--red); min-width: 30px; text-align: center; }
+  #anchorBtn {
+    background: var(--red);
+    border-color: var(--red);
+    color: #fff;
+    font-weight: 700;
+    padding: 4px 14px;
+    font-size: 11px;
+  }
+  #anchorBtn:hover { opacity: .85; }
 
-    #code-row { display: flex; align-items: center; gap: 8px; margin-top: 6px; flex-wrap: wrap; }
-    #currentCodeFull { font-size: 18px; font-weight: bold; color: #e94560; letter-spacing: 2px; min-width: 100px; }
-    #currentDesc { font-size: 11px; color: #777; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    #saveBtn { padding: 5px 14px; background: #27ae60; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 12px; display: none; flex-shrink: 0; }
-    #saveBtn:hover { background: #2ecc71; }
-    #resetBtn { padding: 5px 10px; background: transparent; color: #666; border: 1px solid #333; border-radius: 4px; cursor: pointer; font-size: 11px; flex-shrink: 0; }
-    #resetBtn:hover { color: #e94560; border-color: #e94560; }
-    #statusMsg { font-size: 10px; color: #e94560; font-style: italic; margin-top: 3px; min-height: 14px; }
+  /* Tagging panel */
+  #tag-panel {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    flex-shrink: 0;
+  }
 
-    /* ПРАВАЯ КОЛОНКА */
-    #right { width: 280px; flex-shrink: 0; display: flex; flex-direction: column; background: #111; border-left: 1px solid #222; }
-    #rightHeader { padding: 8px 12px; background: #161625; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #222; flex-shrink: 0; }
-    #eventsList { flex: 1; overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 6px; }
-    .event-card { background: #1a1a1a; border-radius: 5px; padding: 8px; border-left: 3px solid #444; position: relative; }
-    .event-card.blue { border-left-color: #3498db; }
-    .event-card.red { border-left-color: #e74c3c; }
-    .event-card .etime { position: absolute; top: 7px; right: 7px; font-size: 10px; color: #555; }
-    .event-card .ecode { font-size: 14px; font-weight: bold; margin-bottom: 2px; }
-    .event-card .edesc { font-size: 10px; color: #888; margin-bottom: 5px; line-height: 1.4; }
-    .event-card a { font-size: 10px; color: #4a9eff; text-decoration: none; }
-    .event-card a:hover { text-decoration: underline; }
-    .event-card textarea { width: 100%; background: #000; border: 1px solid #2a2a2a; color: #bbb; font-size: 10px; padding: 3px; margin-top: 5px; border-radius: 3px; resize: none; height: 34px; }
-    .del-btn { position: absolute; bottom: 7px; right: 7px; color: #ff4d4d; cursor: pointer; font-size: 10px; background: none; border: none; }
-    #actions { padding: 8px; flex-shrink: 0; }
-    .action-btn { width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #e94560; background: transparent; color: #e94560; font-weight: bold; cursor: pointer; font-size: 11px; }
-    .action-btn:hover { background: #e94560; color: #fff; }
-  </style>
+  /* Step progress */
+  .step-progress { display: flex; align-items: center; gap: 0; margin-bottom: 10px; }
+  .sp-item { display: flex; align-items: center; flex: 1; }
+  .sp-dot {
+    width: 22px; height: 22px; border-radius: 50%;
+    background: var(--bg3); border: 2px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 9px; font-weight: 700; color: var(--muted);
+    flex-shrink: 0; transition: all .2s;
+  }
+  .sp-dot.active { border-color: var(--red); color: var(--red); background: rgba(233,69,96,.1); }
+  .sp-dot.done { border-color: var(--green); background: var(--green); color: #fff; }
+  .sp-line { flex: 1; height: 2px; background: var(--border); margin: 0 3px; transition: background .2s; }
+  .sp-line.done { background: var(--green); }
+  .sp-label { font-size: 10px; color: var(--muted); margin-left: 6px; flex: 1; }
+  .step-nav { display: flex; align-items: center; gap: 8px; }
+  #backBtn {
+    padding: 3px 10px; background: transparent; border: 1px solid var(--border);
+    color: var(--muted); border-radius: 6px; cursor: pointer; font-size: 11px;
+    display: none; transition: all .15s;
+  }
+  #backBtn:hover { border-color: var(--red); color: var(--red); }
+
+  /* Step buttons */
+  #step-btns { display: flex; gap: 7px; flex-wrap: wrap; min-height: 36px; align-items: center; margin-bottom: 10px; }
+  .sbtn {
+    padding: 6px 14px; border-radius: 8px;
+    border: 2px solid var(--border); background: var(--bg3);
+    color: var(--text); cursor: pointer; font-size: 12px; font-weight: 600;
+    transition: all .15s; letter-spacing: .3px;
+  }
+  .sbtn:hover { border-color: var(--red); color: #fff; }
+  .sbtn.sel-r { border-color: var(--red); background: rgba(233,69,96,.15); color: var(--red); }
+  .sbtn.sel-b { border-color: var(--blue); background: rgba(58,143,209,.15); color: var(--blue); }
+  .sbtn.sel-g { border-color: var(--green); background: rgba(39,174,96,.15); color: var(--green); }
+  .sbtn.type-r { border-color: rgba(233,69,96,.4); color: #e07080; }
+  .sbtn.type-b { border-color: rgba(58,143,209,.4); color: #70a8d0; }
+
+  /* Code row */
+  .code-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  #codeDisp { font-size: 22px; font-weight: 800; color: var(--red); letter-spacing: 3px; min-width: 80px; }
+  #descDisp { font-size: 11px; color: var(--muted); flex: 1; min-width: 0; }
+  #saveBtn {
+    padding: 6px 18px; background: var(--green); color: #fff;
+    border: none; border-radius: 8px; cursor: pointer; font-weight: 700;
+    font-size: 12px; display: none; transition: opacity .2s;
+  }
+  #saveBtn:hover { opacity: .85; }
+  #resetBtn {
+    padding: 6px 10px; background: transparent; color: var(--muted);
+    border: 1px solid var(--border); border-radius: 8px; cursor: pointer; font-size: 11px;
+    transition: all .15s;
+  }
+  #resetBtn:hover { color: var(--red); border-color: var(--red); }
+  #statusMsg { font-size: 10px; color: var(--red); margin-top: 6px; min-height: 14px; font-style: italic; }
+
+  /* ── RIGHT ── */
+  #right {
+    width: 290px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg2);
+    border-left: 1px solid var(--border);
+  }
+  #right-header {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0;
+  }
+  #right-header span { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
+  #evCount { font-size: 20px; font-weight: 800; color: var(--red); }
+
+  #events-list { flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+  #events-list::-webkit-scrollbar { width: 4px; }
+  #events-list::-webkit-scrollbar-track { background: transparent; }
+  #events-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .ecard {
+    background: var(--bg3);
+    border-radius: 8px;
+    padding: 10px;
+    border-left: 3px solid var(--border);
+    position: relative;
+  }
+  .ecard.blue { border-left-color: var(--blue); }
+  .ecard.red { border-left-color: var(--red); }
+  .ecard-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 4px; }
+  .ecard-code { font-size: 15px; font-weight: 800; letter-spacing: 1px; }
+  .ecard-pts { font-size: 11px; font-weight: 600; padding: 2px 7px; border-radius: 10px; background: var(--bg2); color: var(--text); }
+  .ecard-pts.plus { color: var(--green); }
+  .ecard-pts.miss { color: var(--muted); }
+  .ecard-pts.pen { color: var(--red); }
+  .ecard-time { font-size: 10px; color: var(--muted); }
+  .ecard-desc { font-size: 10px; color: var(--muted); margin-bottom: 6px; line-height: 1.5; }
+  .ecard-link { font-size: 10px; color: #4a9eff; text-decoration: none; display: inline-flex; align-items: center; gap: 3px; }
+  .ecard-link:hover { text-decoration: underline; }
+  .ecard-note { width: 100%; background: var(--bg); border: 1px solid var(--border); color: var(--text); font-size: 10px; padding: 5px 8px; margin-top: 6px; border-radius: 6px; resize: none; height: 32px; outline: none; font-family: inherit; }
+  .ecard-note:focus { border-color: var(--red); }
+  .del-btn { position: absolute; top: 8px; right: 8px; color: var(--muted); cursor: pointer; font-size: 12px; background: none; border: none; transition: color .15s; }
+  .del-btn:hover { color: var(--red); }
+
+  .empty-state { color: var(--muted); font-size: 11px; text-align: center; margin-top: 30px; line-height: 1.8; }
+
+  #right-footer { padding: 10px; flex-shrink: 0; border-top: 1px solid var(--border); }
+  #dlBtn {
+    width: 100%; padding: 9px; border-radius: 8px;
+    border: 1px solid var(--border); background: var(--bg3);
+    color: var(--text); font-weight: 700; cursor: pointer; font-size: 11px;
+    letter-spacing: .5px; transition: all .2s;
+  }
+  #dlBtn:hover { border-color: var(--red); color: var(--red); }
+
+  /* Keyboard hint */
+  .kbd { display: inline-block; background: var(--bg3); border: 1px solid var(--border); border-radius: 3px; padding: 1px 5px; font-size: 9px; color: var(--muted); font-family: monospace; }
+</style>
 </head>
 <body>
 
 <header>
-  <h1>⚡ TKD Tagger v1.7</h1>
-  <input type="text" id="urlInput" placeholder="Вставьте ссылку на YouTube">
-  <button id="loadBtn" onclick="loadVideo()">ЗАГРУЗИТЬ</button>
+  <div class="logo">
+    <div class="logo-icon">⚡</div>
+    <div>
+      <div class="logo-text">TKD Tagger</div>
+      <div class="logo-ver">v1.7 · WTF Protocol</div>
+    </div>
+  </div>
+  <div class="url-wrap">
+    <input type="text" id="urlInput" placeholder="Вставьте ссылку YouTube...">
+    <button id="loadBtn" onclick="loadVideo()">ЗАГРУЗИТЬ</button>
+  </div>
 </header>
 
 <div class="main">
   <div id="left">
-    <div id="player-wrapper">
+
+    <div id="player-wrap">
       <div id="player"></div>
       <div id="player-overlay"></div>
     </div>
 
-    <div id="custom-controls">
-      <button class="ctrl-btn" id="playPauseBtn" onclick="togglePlay()">▶</button>
-      <button class="ctrl-btn" onclick="seekRel(-10)">«10</button>
-      <button class="ctrl-btn" onclick="seekRel(-3)">«3</button>
-      <button class="ctrl-btn" onclick="seekRel(3)">3»</button>
-      <button class="ctrl-btn" onclick="seekRel(10)">10»</button>
-      <div id="progressBar" onclick="seekByClick(event)"><div id="progressFill"></div></div>
-      <div id="timeDisplay">0:00/0:00</div>
-      <button class="ctrl-btn" onclick="changeSpeed(-1)">🐢</button>
-      <div id="speedDisplay">1x</div>
-      <button class="ctrl-btn" onclick="changeSpeed(1)">🐇</button>
-      <button class="ctrl-btn" id="anchorBtn" onclick="setAnchor()">📍 ЯКОРЬ [Space]</button>
+    <div id="controls">
+      <button class="cbtn" id="playBtn" onclick="togglePlay()">▶</button>
+      <button class="cbtn" onclick="seekRel(-10)">«10с</button>
+      <button class="cbtn" onclick="seekRel(-3)">«3с</button>
+      <button class="cbtn" onclick="seekRel(3)">3с»</button>
+      <button class="cbtn" onclick="seekRel(10)">10с»</button>
+      <div id="progressWrap" onclick="seekClick(event)"><div id="progressFill"></div></div>
+      <div id="timeDisp">0:00 / 0:00</div>
+      <div class="speed-wrap">
+        <button class="cbtn" onclick="chSpeed(-1)" style="padding:4px 7px;">−</button>
+        <div id="speedDisp">1x</div>
+        <button class="cbtn" onclick="chSpeed(1)" style="padding:4px 7px;">+</button>
+      </div>
+      <button class="cbtn" id="anchorBtn" onclick="setAnchor()">📍 ЯКОРЬ <span class="kbd">Space</span></button>
     </div>
 
-    <div id="tagging-panel">
-      <div id="step-header">
-        <div class="step-dot" id="dot0"></div>
-        <div class="step-dot" id="dot1"></div>
-        <div class="step-dot" id="dot2"></div>
-        <div class="step-dot" id="dot3"></div>
-        <div class="step-dot" id="dot4"></div>
-        <span id="step-label">Нажмите ЯКОРЬ или ПРОБЕЛ для начала</span>
-        <button id="backBtn" onclick="goBack()">◀ Назад</button>
+    <div id="tag-panel">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+        <div class="step-progress" id="stepProgress">
+          <!-- rendered by JS -->
+        </div>
+        <div class="step-nav">
+          <span id="stepLabel" style="font-size:11px;color:var(--muted);">Нажмите ЯКОРЬ или <span class="kbd">Space</span></span>
+          <button id="backBtn" onclick="goBack()">◀ Назад <span class="kbd">⌫</span></button>
+        </div>
       </div>
-      <div id="step-buttons"></div>
-      <div id="code-row">
-        <div id="currentCodeFull">—</div>
-        <div id="currentDesc"></div>
-        <button id="saveBtn" onclick="saveEvent()">✅ СОХРАНИТЬ</button>
-        <button id="resetBtn" onclick="resetTagging()">✖</button>
+
+      <div id="step-btns"></div>
+
+      <div class="code-row">
+        <div id="codeDisp">—</div>
+        <div id="descDisp"></div>
+        <button id="saveBtn" onclick="saveEvent()">✅ СОХРАНИТЬ <span class="kbd">Enter</span></button>
+        <button id="resetBtn" onclick="resetTag()">✖ <span class="kbd">Esc</span></button>
       </div>
       <div id="statusMsg"></div>
     </div>
+
   </div>
 
   <div id="right">
-    <div id="rightHeader">
-      <span style="font-size:13px;font-weight:bold;">СОБЫТИЯ</span>
-      <span id="eventCount" style="color:#e94560;font-weight:bold;font-size:16px;">0</span>
+    <div id="right-header">
+      <span>События</span>
+      <div id="evCount">0</div>
     </div>
-    <div id="eventsList"><div style="color:#444;font-size:11px;text-align:center;margin-top:20px;">Событий пока нет</div></div>
-    <div id="actions"><button class="action-btn" onclick="downloadJSON()">⬇ СКАЧАТЬ JSON</button></div>
+    <div id="events-list">
+      <div class="empty-state">Событий пока нет.<br>Нажмите <strong>ЯКОРЬ</strong> во время просмотра.</div>
+    </div>
+    <div id="right-footer">
+      <button id="dlBtn" onclick="dlJSON()">⬇ Скачать JSON</button>
+    </div>
   </div>
 </div>
 
 <script src="https://www.youtube.com/iframe_api"></script>
 <script>
-let player, playerReady = false, videoId = "", events = [];
+// ── State ──
+let player, ready = false, vidId = "", events = [];
 let anchorTime = 0;
-let speeds = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2];
-let speedIdx = 3;
-let progressInterval = null;
+const SPEEDS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2];
+let spdIdx = 3;
+let progTimer = null;
+let curStep = -1, sel = {};
 
+// ── Steps config ──
 const STEPS = [
-  { key: "fighter", label: "1: Боец", options: [
-    { code: "B", label: "🔵 Blue", cls: "fighter-b" },
-    { code: "R", label: "🔴 Red",  cls: "fighter-r" }
+  { key:"fighter", label:"Боец", opts:[
+    {code:"B", label:"🔵 Blue", cls:"type-b"},
+    {code:"R", label:"🔴 Red",  cls:"type-r"}
   ]},
-  { key: "initiative", label: "2: Инициатива", options: [
-    { code: "A", label: "A — Атака" },
-    { code: "C", label: "C — Контра" },
-    { code: "S", label: "S — Встречный" }
+  { key:"init", label:"Инициатива", opts:[
+    {code:"A", label:"Атака"},
+    {code:"C", label:"Контратака"},
+    {code:"S", label:"Встречный"}
   ]},
-  { key: "weapon", label: "3: Оружие", options: [
-    { code: "1", label: "1 — Передняя" },
-    { code: "2", label: "2 — Задняя" },
-    { code: "3", label: "3 — Рука" },
-    { code: "4", label: "4 — Разворот" }
+  { key:"weapon", label:"Оружие", opts:[
+    {code:"1", label:"Передняя нога"},
+    {code:"2", label:"Задняя нога"},
+    {code:"3", label:"Рука"},
+    {code:"4", label:"Разворот"}
   ]},
-  { key: "zone", label: "4: Зона", options: [
-    { code: "V", label: "V — Корпус" },
-    { code: "H", label: "H — Голова" }
+  { key:"zone", label:"Зона", opts:[
+    {code:"V", label:"Корпус"},
+    {code:"H", label:"Голова"}
   ]},
-  { key: "result", label: "5: Результат", options: [
-    { code: "1", label: "+1" },
-    { code: "2", label: "+2" },
-    { code: "3", label: "+3" },
-    { code: "4", label: "+4" },
-    { code: "0", label: "Мимо" },
-    { code: "-", label: "Гам-джон" }
+  { key:"result", label:"Результат", opts:[
+    {code:"1", label:"+1 балл"},
+    {code:"2", label:"+2 балла"},
+    {code:"3", label:"+3 балла"},
+    {code:"4", label:"+4 балла"},
+    {code:"0", label:"Мимо"},
+    {code:"-", label:"Гам-джон"}
   ]}
 ];
 
-let currentStep = -1;
-let selections = {};
-
-// YouTube API
+// ── YouTube API ──
 function onYouTubeIframeAPIReady() {
   player = new YT.Player("player", {
-    height: "100%", width: "100%", videoId: "",
-    playerVars: { playsinline: 1, rel: 0, modestbranding: 1, controls: 0 },
-    events: {
-      onReady: () => { playerReady = true; },
-      onStateChange: (e) => {
-        document.getElementById("playPauseBtn").textContent = e.data === YT.PlayerState.PLAYING ? "⏸" : "▶";
-        if (e.data === YT.PlayerState.PLAYING) startProgress();
+    height:"100%", width:"100%", videoId:"",
+    playerVars:{ playsinline:1, rel:0, modestbranding:1, controls:0, enablejsapi:1 },
+    events:{
+      onReady: ()=>{ ready=true; },
+      onStateChange: e=>{
+        document.getElementById("playBtn").textContent = e.data===YT.PlayerState.PLAYING ? "⏸" : "▶";
+        if(e.data===YT.PlayerState.PLAYING) startProg();
+        else if(e.data===YT.PlayerState.PAUSED || e.data===YT.PlayerState.ENDED) stopProg();
       }
     }
   });
@@ -201,197 +410,219 @@ function onYouTubeIframeAPIReady() {
 function loadVideo() {
   const url = document.getElementById("urlInput").value.trim();
   let id = "";
-  if (url.includes("v=")) id = url.split("v=")[1].split("&")[0];
-  else if (url.includes("youtu.be/")) id = url.split("youtu.be/")[1].split("?")[0];
-  if (!id) { alert("Неверная ссылка"); return; }
-  videoId = id;
-  player.loadVideoById(videoId);
-  setStatus("Видео загружено. Нажмите ПРОБЕЛ для разметки.");
+  try {
+    const u = new URL(url);
+    if(u.hostname.includes("youtu.be")) id = u.pathname.slice(1).split("?")[0];
+    else id = u.searchParams.get("v") || "";
+  } catch(e) {
+    const m = url.match(/(?:v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+    if(m) id = m[1];
+  }
+  if(!id){ setStatus("⚠️ Неверная ссылка YouTube"); return; }
+  vidId = id;
+  if(ready) { player.loadVideoById(vidId); setStatus("✅ Видео загружено — нажмите ▶ или Space"); }
+  else { setStatus("⏳ Плеер ещё не готов, попробуйте снова через секунду"); }
 }
 
-function togglePlay() {
-  if (!playerReady) return;
-  player.getPlayerState() === YT.PlayerState.PLAYING ? player.pauseVideo() : player.playVideo();
+function togglePlay() { if(!ready)return; player.getPlayerState()===YT.PlayerState.PLAYING ? player.pauseVideo() : player.playVideo(); }
+function seekRel(s) { if(!ready)return; player.seekTo(Math.max(0, player.getCurrentTime()+s), true); }
+function seekClick(e) { if(!ready)return; player.seekTo((e.offsetX/document.getElementById("progressWrap").offsetWidth)*player.getDuration(), true); }
+function chSpeed(d) {
+  spdIdx = Math.max(0, Math.min(SPEEDS.length-1, spdIdx+d));
+  if(ready) player.setPlaybackRate(SPEEDS[spdIdx]);
+  document.getElementById("speedDisp").textContent = SPEEDS[spdIdx]+"x";
 }
-function seekRel(s) { if (playerReady) player.seekTo(Math.max(0, player.getCurrentTime() + s), true); }
-function seekByClick(e) {
-  if (!playerReady) return;
-  player.seekTo((e.offsetX / document.getElementById("progressBar").offsetWidth) * player.getDuration(), true);
+function startProg() {
+  stopProg();
+  progTimer = setInterval(()=>{
+    if(!ready)return;
+    const c=player.getCurrentTime()||0, d=player.getDuration()||1;
+    document.getElementById("progressFill").style.width=(c/d*100)+"%";
+    document.getElementById("timeDisp").textContent=fmt(c)+" / "+fmt(d);
+  }, 400);
 }
-function changeSpeed(dir) {
-  speedIdx = Math.max(0, Math.min(speeds.length - 1, speedIdx + dir));
-  if (playerReady) player.setPlaybackRate(speeds[speedIdx]);
-  document.getElementById("speedDisplay").textContent = speeds[speedIdx] + "x";
-}
-function startProgress() {
-  if (progressInterval) clearInterval(progressInterval);
-  progressInterval = setInterval(() => {
-    if (!playerReady) return;
-    const cur = player.getCurrentTime() || 0, dur = player.getDuration() || 1;
-    document.getElementById("progressFill").style.width = (cur/dur*100) + "%";
-    document.getElementById("timeDisplay").textContent = formatTime(cur) + "/" + formatTime(dur);
-  }, 500);
-}
+function stopProg() { if(progTimer){clearInterval(progTimer);progTimer=null;} }
 
-// Разметка
+// ── Tagging ──
 function setAnchor() {
-  if (!playerReady) return;
+  if(!ready||!vidId){ setStatus("⚠️ Сначала загрузите видео"); return; }
   anchorTime = Math.floor(player.getCurrentTime());
-  player.seekTo(Math.max(0, anchorTime - 5), true);
-  player.setPlaybackRate(0.5); speedIdx = 1;
-  document.getElementById("speedDisplay").textContent = "0.5x";
+  player.seekTo(Math.max(0, anchorTime-5), true);
+  spdIdx=1; player.setPlaybackRate(0.5);
+  document.getElementById("speedDisp").textContent="0.5x";
   player.playVideo();
-  currentStep = 0; selections = {};
+  curStep=0; sel={};
   renderStep();
-  setStatus("⏱ Якорь: " + formatTime(anchorTime));
+  setStatus("📍 Якорь: "+fmt(anchorTime)+" · Смотрите эпизод");
 }
 
 function renderStep() {
-  if (currentStep < 0 || currentStep >= STEPS.length) return;
-  const step = STEPS[currentStep];
-  for (let i = 0; i < STEPS.length; i++) {
-    const d = document.getElementById("dot" + i);
-    d.className = "step-dot" + (i < currentStep ? " done" : i === currentStep ? " active" : "");
-  }
-  document.getElementById("step-label").textContent = step.label;
-  document.getElementById("backBtn").style.display = currentStep > 0 ? "inline-block" : "none";
+  // Progress dots
+  const prog = document.getElementById("stepProgress");
+  prog.innerHTML = "";
+  STEPS.forEach((s,i)=>{
+    const dot = document.createElement("div");
+    dot.className = "sp-dot" + (i<curStep?" done":i===curStep?" active":"");
+    dot.textContent = i<curStep ? "✓" : (i+1);
+    prog.appendChild(dot);
+    if(i<STEPS.length-1){
+      const line = document.createElement("div");
+      line.className = "sp-line" + (i<curStep?" done":"");
+      prog.appendChild(line);
+    }
+  });
+
+  if(curStep<0||curStep>=STEPS.length) return;
+  const step = STEPS[curStep];
+  document.getElementById("stepLabel").textContent = "Шаг "+(curStep+1)+": "+step.label;
+  document.getElementById("backBtn").style.display = curStep>0?"inline-block":"none";
   document.getElementById("saveBtn").style.display = "none";
 
-  const container = document.getElementById("step-buttons");
-  container.innerHTML = "";
-  step.options.forEach(opt => {
-    const btn = document.createElement("button");
-    btn.className = "step-btn " + (opt.cls || "");
-    if (selections[step.key] === opt.code) btn.classList.add("selected");
-    btn.textContent = opt.label;
-    btn.onclick = () => selectOption(step.key, opt.code, btn);
-    container.appendChild(btn);
+  const c = document.getElementById("step-btns");
+  c.innerHTML="";
+  step.opts.forEach(opt=>{
+    const b = document.createElement("button");
+    b.className = "sbtn " + (opt.cls||"");
+    const isSelected = sel[step.key]===opt.code;
+    if(isSelected) b.classList.add(step.key==="fighter"?(opt.code==="B"?"sel-b":"sel-r"):"sel-g");
+    b.textContent = opt.label;
+    b.onclick = ()=>pick(step.key, opt.code, step.key==="fighter"?(opt.code==="B"?"sel-b":"sel-r"):"sel-g");
+    c.appendChild(b);
   });
-  updateCodeDisplay();
+  updateCode();
 }
 
-function selectOption(key, code, btn) {
-  document.querySelectorAll("#step-buttons .step-btn").forEach(b => b.classList.remove("selected"));
-  btn.classList.add("selected");
-  selections[key] = code;
-  updateCodeDisplay();
-  setTimeout(() => {
-    currentStep++;
-    if (currentStep >= STEPS.length) {
-      document.getElementById("step-buttons").innerHTML = "<span style='color:#27ae60;font-size:12px;'>✅ Готово! Нажмите СОХРАНИТЬ или Enter</span>";
-      document.getElementById("saveBtn").style.display = "inline-block";
-      document.getElementById("backBtn").style.display = "inline-block";
-      for (let i = 0; i < STEPS.length; i++) document.getElementById("dot" + i).className = "step-dot done";
-      document.getElementById("step-label").textContent = "Все шаги пройдены";
-    } else {
-      renderStep();
-    }
-  }, 220);
+function pick(key, code, selCls) {
+  sel[key]=code;
+  updateCode();
+  setTimeout(()=>{
+    curStep++;
+    if(curStep>=STEPS.length){
+      document.getElementById("step-btns").innerHTML='<span style="color:var(--green);font-size:12px;font-weight:600;">✅ Все шаги пройдены — нажмите СОХРАНИТЬ или Enter</span>';
+      document.getElementById("saveBtn").style.display="inline-block";
+      document.getElementById("backBtn").style.display="inline-block";
+      document.getElementById("stepLabel").textContent="Готово!";
+      // All dots done
+      const prog=document.getElementById("stepProgress");
+      prog.querySelectorAll(".sp-dot").forEach(d=>{d.className="sp-dot done";d.textContent="✓";});
+      prog.querySelectorAll(".sp-line").forEach(l=>l.classList.add("done"));
+    } else { renderStep(); }
+  }, 200);
 }
 
 function goBack() {
-  if (currentStep <= 0) return;
-  // Если уже на финальном экране — вернуться к шагу 4
-  if (currentStep >= STEPS.length) currentStep = STEPS.length - 1;
-  else currentStep--;
-  // Удалить выбор текущего шага
-  delete selections[STEPS[currentStep].key];
+  if(curStep<=0&&curStep<STEPS.length) return;
+  if(curStep>=STEPS.length) curStep=STEPS.length-1;
+  else curStep--;
+  delete sel[STEPS[curStep].key];
   renderStep();
 }
 
-function updateCodeDisplay() {
-  const f = selections.fighter || "", i = selections.initiative || "",
-        w = selections.weapon || "", z = selections.zone || "", r = selections.result || "";
-  const code = f + i + w + z;
-  const pts = r ? (r === "-" ? " −" : r === "0" ? " ×" : " +" + r) : "";
-  document.getElementById("currentCodeFull").textContent = (code || "—") + pts;
-  const map = {A:"Атака",C:"Контра",S:"Встречный","1":"Передняя","2":"Задняя","3":"Рука","4":"Разворот",V:"Корпус",H:"Голова"};
-  let parts = [];
-  if (f) parts.push(f === "B" ? "🔵" : "🔴");
-  [i,w,z].forEach(x => { if (x && map[x]) parts.push(map[x]); });
-  if (r) parts.push(r==="-"?"Гам-джон":r==="0"?"Мимо":"+"+r+" балл(а)");
-  document.getElementById("currentDesc").textContent = parts.join(" → ");
+function updateCode() {
+  const f=sel.fighter||"", i=sel.init||"", w=sel.weapon||"", z=sel.zone||"", r=sel.result||"";
+  const code = f+i+w+z;
+  const pts = r?(r==="-"?" −":r==="0"?" ×":" +"+r):"";
+  document.getElementById("codeDisp").textContent=(code||"—")+pts;
+  const MAP={A:"Атака",C:"Контратака",S:"Встречный","1":"Передняя","2":"Задняя","3":"Рука","4":"Разворот",V:"Корпус",H:"Голова"};
+  let parts=[];
+  if(f) parts.push(f==="B"?"🔵 Blue":"🔴 Red");
+  [i,w,z].forEach(x=>{if(x&&MAP[x])parts.push(MAP[x]);});
+  if(r) parts.push(r==="-"?"Гам-джон":r==="0"?"Мимо":"+"+r+" балл(а)");
+  document.getElementById("descDisp").textContent=parts.join(" → ");
 }
 
 function saveEvent() {
-  const keys = ["fighter","initiative","weapon","zone","result"];
-  if (keys.some(k => !selections[k])) { setStatus("⚠️ Заполни все шаги!"); return; }
-  const pts = selections.result === "-" ? -1 : parseInt(selections.result);
-  const code = selections.fighter + selections.initiative + selections.weapon + selections.zone;
+  if(STEPS.some(s=>!sel[s.key])){ setStatus("⚠️ Заполните все шаги!"); return; }
+  const pts = sel.result==="-"?-1:parseInt(sel.result);
+  const code = sel.fighter+sel.init+sel.weapon+sel.zone;
   events.push({
-    id: Date.now(),
-    fighter: selections.fighter === "B" ? "Blue" : "Red",
-    time: anchorTime, code, points: pts,
-    desc: document.getElementById("currentDesc").textContent,
-    link: "https://www.youtube.com/watch?v=" + videoId + "&t=" + Math.max(0, anchorTime-3) + "s",
-    comment: ""
+    id:Date.now(),
+    fighter:sel.fighter==="B"?"Blue":"Red",
+    time:anchorTime, code, points:pts,
+    desc:document.getElementById("descDisp").textContent,
+    link:"https://www.youtube.com/watch?v="+vidId+"&t="+Math.max(0,anchorTime-3)+"s",
+    comment:""
   });
+  // Reset speed
+  spdIdx=3; if(ready){player.setPlaybackRate(1);} document.getElementById("speedDisp").textContent="1x";
   renderEvents();
-  // Сброс скорости к 1x
-  player.setPlaybackRate(1.0); speedIdx = 3;
-  document.getElementById("speedDisplay").textContent = "1x";
-  resetTagging();
-  setStatus("✅ Сохранено! Пробел — следующий эпизод.");
+  resetTag();
+  setStatus("✅ Сохранено! Нажмите Space для следующего эпизода.");
 }
 
-function resetTagging() {
-  currentStep = -1; selections = {};
-  document.getElementById("step-buttons").innerHTML = "";
-  document.getElementById("currentCodeFull").textContent = "—";
-  document.getElementById("currentDesc").textContent = "";
-  document.getElementById("saveBtn").style.display = "none";
-  document.getElementById("backBtn").style.display = "none";
-  for (let i = 0; i < STEPS.length; i++) document.getElementById("dot" + i).className = "step-dot";
-  document.getElementById("step-label").textContent = "Нажмите ЯКОРЬ или ПРОБЕЛ для начала";
+function resetTag() {
+  curStep=-1; sel={};
+  document.getElementById("step-btns").innerHTML="";
+  document.getElementById("codeDisp").textContent="—";
+  document.getElementById("descDisp").textContent="";
+  document.getElementById("saveBtn").style.display="none";
+  document.getElementById("backBtn").style.display="none";
+  document.getElementById("stepLabel").textContent='Нажмите ЯКОРЬ или <span class="kbd">Space</span>';
+  const prog=document.getElementById("stepProgress");
+  prog.innerHTML="";
+  STEPS.forEach((s,i)=>{
+    const dot=document.createElement("div"); dot.className="sp-dot"; dot.textContent=i+1; prog.appendChild(dot);
+    if(i<STEPS.length-1){const l=document.createElement("div");l.className="sp-line";prog.appendChild(l);}
+  });
 }
 
 function renderEvents() {
-  const list = document.getElementById("eventsList");
-  list.innerHTML = "";
-  if (!events.length) { list.innerHTML = "<div style='color:#444;font-size:11px;text-align:center;margin-top:20px;'>Событий пока нет</div>"; document.getElementById("eventCount").textContent = "0"; return; }
-  events.slice().reverse().forEach(ev => {
-    const card = document.createElement("div");
-    card.className = "event-card " + ev.fighter.toLowerCase();
-    const icon = ev.fighter === "Blue" ? "🔵" : "🔴";
-    const ptsLabel = ev.points === -1 ? "Гам-джон" : ev.points === 0 ? "Мимо" : "+" + ev.points;
-    card.innerHTML = `<div class="etime">${formatTime(ev.time)}</div>
-      <div class="ecode">${icon} ${ev.code} <span style="color:#aaa;font-size:11px;font-weight:normal;">${ptsLabel}</span></div>
-      <div class="edesc">${ev.desc}</div>
-      <a href="${ev.link}" target="_blank">▶ СМОТРЕТЬ ЭПИЗОД</a>
-      <textarea placeholder="Заметка..." onchange="updateComment(${ev.id},this.value)">${ev.comment}</textarea>
-      <button class="del-btn" onclick="deleteEvent(${ev.id})">✕</button>`;
+  const list=document.getElementById("events-list");
+  list.innerHTML="";
+  document.getElementById("evCount").textContent=events.length;
+  if(!events.length){list.innerHTML='<div class="empty-state">Событий пока нет.<br>Нажмите <strong>ЯКОРЬ</strong> во время просмотра.</div>';return;}
+  events.slice().reverse().forEach(ev=>{
+    const card=document.createElement("div");
+    card.className="ecard "+ev.fighter.toLowerCase();
+    const icon=ev.fighter==="Blue"?"🔵":"🔴";
+    const ptsLabel=ev.points===-1?"Гам-джон":ev.points===0?"Мимо":"+"+ev.points;
+    const ptsCls=ev.points>0?"plus":ev.points===-1?"pen":"miss";
+    card.innerHTML=`
+      <div class="ecard-top">
+        <div class="ecard-code">${icon} ${ev.code}</div>
+        <span class="ecard-pts ${ptsCls}">${ptsLabel}</span>
+      </div>
+      <div class="ecard-time">${fmt(ev.time)}</div>
+      <div class="ecard-desc">${ev.desc}</div>
+      <a class="ecard-link" href="${ev.link}" target="_blank">▶ Смотреть эпизод</a>
+      <textarea class="ecard-note" placeholder="Заметка..." onchange="updNote(${ev.id},this.value)">${ev.comment}</textarea>
+      <button class="del-btn" onclick="delEv(${ev.id})">✕</button>`;
     list.appendChild(card);
   });
-  document.getElementById("eventCount").textContent = events.length;
 }
 
-function updateComment(id, val) { const ev = events.find(e => e.id===id); if (ev) ev.comment = val; }
-function deleteEvent(id) { if (confirm("Удалить?")) { events = events.filter(e => e.id!==id); renderEvents(); } }
+function updNote(id,v){const e=events.find(x=>x.id===id);if(e)e.comment=v;}
+function delEv(id){if(confirm("Удалить событие?")){ events=events.filter(x=>x.id!==id); renderEvents(); }}
 
-document.addEventListener("keydown", function(e) {
-  if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
-  if (e.code === "Space") { e.preventDefault(); setAnchor(); return; }
-  if (e.code === "Enter") { e.preventDefault(); if (document.getElementById("saveBtn").style.display !== "none") saveEvent(); return; }
-  if (e.code === "Escape") { e.preventDefault(); resetTagging(); return; }
-  if (e.code === "Backspace") { e.preventDefault(); goBack(); return; }
-  if (currentStep >= 0 && currentStep < STEPS.length) {
-    const step = STEPS[currentStep], key = e.key.toUpperCase();
-    const opt = step.options.find(o => o.code === key);
-    if (opt) {
+// ── Keyboard ──
+document.addEventListener("keydown",e=>{
+  if(e.target.tagName==="INPUT"||e.target.tagName==="TEXTAREA")return;
+  if(e.code==="Space"){e.preventDefault();setAnchor();return;}
+  if(e.code==="Enter"){e.preventDefault();if(document.getElementById("saveBtn").style.display!=="none")saveEvent();return;}
+  if(e.code==="Escape"){e.preventDefault();resetTag();return;}
+  if(e.code==="Backspace"){e.preventDefault();goBack();return;}
+  if(curStep>=0&&curStep<STEPS.length){
+    const step=STEPS[curStep], k=e.key.toUpperCase();
+    const opt=step.opts.find(o=>o.code===k);
+    if(opt){
       e.preventDefault();
-      const btns = document.querySelectorAll("#step-buttons .step-btn");
-      const idx = step.options.findIndex(o => o.code === key);
-      if (btns[idx]) selectOption(step.key, opt.code, btns[idx]);
+      const btns=document.querySelectorAll("#step-btns .sbtn");
+      const idx=step.opts.findIndex(o=>o.code===k);
+      if(btns[idx]) pick(step.key,opt.code,step.key==="fighter"?(opt.code==="B"?"sel-b":"sel-r"):"sel-g");
     }
   }
 });
 
-function setStatus(m) { document.getElementById("statusMsg").textContent = m; }
-function formatTime(s) { s=Math.floor(s); return Math.floor(s/60)+":"+String(s%60).padStart(2,"0"); }
-function downloadJSON() {
-  const blob = new Blob([JSON.stringify({videoId, total:events.length, events},null,2)],{type:"application/json"});
-  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "tkd_analysis.json"; a.click();
+// ── Utils ──
+function setStatus(m){document.getElementById("statusMsg").textContent=m;}
+function fmt(s){s=Math.floor(s||0);return Math.floor(s/60)+":"+String(s%60).padStart(2,"0");}
+function dlJSON(){
+  const blob=new Blob([JSON.stringify({videoId:vidId,total:events.length,events},null,2)],{type:"application/json"});
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="tkd_analysis.json";a.click();
 }
+
+// Init progress dots
+resetTag();
 </script>
 </body>
 </html>
