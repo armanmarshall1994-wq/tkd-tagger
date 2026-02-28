@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>TKD Tagger v4.4 Pro</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --red: #e94560; --blue: #3a8fd1; --green: #27ae60;
+  --bg: #0d0d14; --bg2: #13131f; --bg3: #1a1a2e;
+  --border: #252535; --text: #d0d0e0; --muted: #6060a0;
+}
+html, body { height: 100%; background: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; font-size: 14px; overflow-x: hidden; }
+
+/* ── HEADER ── */
+header {
+  height: 48px; background: var(--bg2); border-bottom: 2px solid var(--red);
+  display: flex; align-items: center; gap: 10px; padding: 0 14px; flex-shrink: 0;
+}
+.logo { font-size: 15px; font-weight: 900; color: #fff; white-space: nowrap; }
+.logo span { color: var(--red); }
+#urlInput {
+  flex: 1; background: #000; border: 1px solid var(--border);
+  border-radius: 5px; padding: 7px 10px; color: #fff; font-size: 13px; outline: none;
+}
+#loadBtn { padding: 7px 16px; background: var(--red); color: #fff; border: none; border-radius: 5px; font-weight: 800; cursor: pointer; white-space: nowrap; }
+
+/* ════════════════════════════════
+   DESKTOP (≥ 1024px)
+════════════════════════════════ */
+@media (min-width: 1024px) {
+  body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+
+  #main-area {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  /* LEFT: 2/3 width */
+  #left-col {
+    width: 66%;
+    display: flex;
+    flex-direction: column;
+    background: #000;
+    border-right: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  #player-wrap {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    background: #000;
+    position: relative;
+    flex-shrink: 0;
+  }
+  #player-wrap iframe, #player-wrap > div {
+    position: absolute !important; top: 0; left: 0; width: 100% !important; height: 100% !important;
+  }
+
+  #controls-bar {
+    padding: 12px 15px;
+    background: var(--bg2);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+
+  /* RIGHT: 1/3 width */
+  #tag-col {
+    width: 34%;
+    background: var(--bg2);
+    display: flex;
+    flex-direction: column;
+    padding: 20px;
+    gap: 15px;
+    overflow-y: auto;
+  }
+
+  /* EVENTS: Bottom, full width */
+  #events-area {
+    height: 180px;
+    flex-shrink: 0;
+    border-top: 2px solid var(--border);
+    padding: 12px 15px;
+    background: var(--bg);
+    overflow-y: auto;
+  }
+}
+
+/* ════════════════════════════════
+   MOBILE (< 1024px) — EXACTLY AS BEFORE
+════════════════════════════════ */
+@media (max-width: 1023px) {
+  body { display: flex; flex-direction: column; min-height: 100vh; overflow-y: auto; }
+  #main-area { display: flex; flex-direction: column; }
+  #left-col { display: flex; flex-direction: column; width: 100%; }
+  #player-wrap { width: 100%; aspect-ratio: 16/9; background: #000; position: relative; }
+  #player-wrap iframe, #player-wrap > div { position: absolute !important; top:0; left:0; width:100% !important; height:100% !important; }
+  #controls-bar { background: var(--bg2); border-top: 1px solid var(--border); padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
+  #tag-col { background: var(--bg3); border-top: 1px solid var(--border); padding: 14px 12px; display: flex; flex-direction: column; gap: 12px; }
+  #events-area { padding: 14px 12px; border-top: 2px solid var(--border); }
+}
+
+/* ── UI ELEMENTS ── */
+.ctrl-row { display: flex; gap: 6px; align-items: center; }
+.cbtn {
+  flex: 1; background: var(--bg3); border: 1px solid var(--border);
+  color: var(--text); padding: 10px 2px; border-radius: 6px;
+  font-size: 11px; font-weight: 700; cursor: pointer;
+}
+.spd-btn { background: var(--bg3); border: 1px solid var(--border); color: var(--text); padding: 10px 14px; border-radius: 6px; font-weight: 800; cursor: pointer; }
+#speedDisp { min-width: 45px; text-align: center; font-size: 14px; font-weight: 900; color: var(--red); }
+
+#progressWrap { flex: 1; height: 10px; background: var(--border); border-radius: 5px; cursor: pointer; position: relative; }
+#progressFill { height: 100%; background: var(--red); border-radius: 5px; width: 0%; pointer-events: none; }
+#timeDisp { font-family: monospace; font-size: 11px; color: var(--muted); min-width: 80px; text-align: right; }
+
+#anchorBtn {
+  background: var(--red); color: #fff; font-size: 14px; font-weight: 900;
+  padding: 14px; border-radius: 8px; border: none; width: 100%; cursor: pointer;
+  box-shadow: 0 4px 12px rgba(233,69,96,0.3);
+}
+
+/* TAG BUTTONS - Minimalist Grid */
+.tag-section-label { font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px; }
+#stepLabel { font-size: 16px; font-weight: 900; color: var(--red); margin-bottom: 10px; }
+#step-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.sbtn {
+  padding: 15px 10px; border-radius: 8px; border: 1px solid var(--border);
+  background: var(--bg3); color: var(--text); font-size: 13px; font-weight: 700;
+  cursor: pointer; transition: 0.2s;
+}
+.sbtn:hover { border-color: var(--muted); background: var(--bg); }
+.sbtn.sel-b { border-color: var(--blue); color: var(--blue); }
+.sbtn.sel-r { border-color: var(--red); color: var(--red); }
+
+.code-preview {
+  margin-top: auto; background: #000; border: 1px solid var(--border); border-radius: 10px;
+  padding: 15px; display: flex; align-items: center; justify-content: space-between;
+}
+#codeDisp { font-size: 26px; font-weight: 900; color: var(--red); letter-spacing: 3px; }
+#saveBtn { padding: 12px 20px; background: var(--green); color: #fff; border: none; border-radius: 6px; font-weight: 900; cursor: pointer; }
+
+/* EVENTS GRID */
+#events-grid { display: flex; flex-wrap: wrap; gap: 10px; }
+.ecard { background: var(--bg2); border-radius: 8px; padding: 12px; border-left: 4px solid var(--border); min-width: 160px; position: relative; }
+.ecard.blue { border-left-color: var(--blue); }
+.ecard.red { border-left-color: var(--red); }
+.ecard-top { display: flex; justify-content: space-between; font-weight: 900; margin-bottom: 5px; }
+.ecard-link { color: var(--blue); text-decoration: none; font-size: 11px; font-weight: 700; }
+.del-btn { position: absolute; top: 5px; right: 8px; color: var(--muted); border: none; background: none; cursor: pointer; }
+#dlBtn { margin-top: 15px; width: 100%; padding: 12px; background: var(--bg2); border: 1px solid var(--border); color: #fff; font-weight: 800; border-radius: 8px; cursor: pointer; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">TKD <span>V4.4</span></div>
+  <input type="text" id="urlInput" placeholder="YouTube URL">
+  <button id="loadBtn" onclick="loadVideo()">ЗАГРУЗИТЬ</button>
+</header>
+
+<div id="main-area">
+  <div id="left-col">
+    <div id="player-wrap"><div id="player"></div></div>
+    <div id="controls-bar">
+      <div class="ctrl-row">
+        <button class="cbtn" id="playBtn" onclick="togglePlay()">ПУСК</button>
+        <button class="cbtn" onclick="seekRel(-10)">-10с</button>
+        <button class="cbtn" onclick="seekRel(-3)">-3с</button>
+        <button class="cbtn" onclick="seekRel(3)">+3с</button>
+        <button class="cbtn" onclick="seekRel(10)">+10с</button>
+        <button class="spd-btn" onclick="chSpeed(-1)">−</button>
+        <div id="speedDisp">1x</div>
+        <button class="spd-btn" onclick="chSpeed(1)">+</button>
+      </div>
+      <div class="ctrl-row">
+        <div id="progressWrap" onclick="seekClick(event)"><div id="progressFill"></div></div>
+        <div id="timeDisp">0:00 / 0:00</div>
+      </div>
+      <button id="anchorBtn" onclick="setAnchor()">📍 ФИКСИРОВАТЬ МОМЕНТ (ЯКОРЬ)</button>
+    </div>
+  </div>
+
+  <div id="tag-col">
+    <div class="tag-section-label">Панель ввода</div>
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <div id="stepLabel">Ожидание якоря...</div>
+      <button id="backBtn" onclick="goBack()" style="display:none; background:none; border:1px solid var(--border); color:var(--text); padding:5px 10px; border-radius:4px; cursor:pointer; font-size:11px;">◀ Назад</button>
+    </div>
+    <div id="step-btns"></div>
+    <div class="code-preview">
+      <div id="codeDisp">—</div>
+      <button id="saveBtn" onclick="saveEvent()" style="display:none">СОХРАНИТЬ</button>
+    </div>
+  </div>
+</div>
+
+<div id="events-area">
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+    <h2 style="font-size:14px; font-weight:900;">📋 СОБЫТИЯ</h2>
+    <span id="evCount" style="color:var(--red); font-weight:900;">0</span>
+  </div>
+  <div id="events-grid"></div>
+  <button id="dlBtn" onclick="dlJSON()">СКАЧАТЬ ОТЧЕТ (JSON)</button>
+</div>
+
+<script src="https://www.youtube.com/iframe_api"></script>
+<script>
+let player, ready=false, vidId="", events=[], anchorTime=0, curStep=-1, sel={}, progTimer=null;
+const SPEEDS=[0.25,0.5,0.75,1,1.25,1.5,2];
+let spdIdx=3;
+
+const STEPS=[
+  {key:"fighter", label:"КТО УДАРИЛ?", opts:[{code:"B",label:"🔵 СИНИЙ",cls:"sel-b"},{code:"R",label:"🔴 КРАСНЫЙ",cls:"sel-r"}]},
+  {key:"init", label:"ТИП АТАКИ", opts:[{code:"A",label:"АТАКА"},{code:"C",label:"КОНТРА"},{code:"S",label:"ВСТРЕЧНЫЙ"}]},
+  {key:"weapon", label:"ЧЕМ?", opts:[{code:"1",label:"ПЕРЕДНЯЯ"},{code:"2",label:"ЗАДНЯЯ"},{code:"3",label:"РУКА"},{code:"4",label:"РАЗВОРОТ"}]},
+  {key:"zone", label:"КУДА?", opts:[{code:"V",label:"КОРПУС"},{code:"H",label:"ГОЛОВА"}]},
+  {key:"result", label:"РЕЗУЛЬТАТ", opts:[{code:"1",label:"+1"},{code:"2",label:"+2"},{code:"3",label:"+3"},{code:"4",label:"+4"},{code:"0",label:"МИМО"},{code:"-",label:"ГАМ-ДЖ."}]}
+];
+
+function onYouTubeIframeAPIReady(){
+  player = new YT.Player("player",{
+    height:"100%", width:"100%", videoId:"",
+    playerVars:{playsinline:1, rel:0, controls:0, disablekb:1},
+    events:{
+      onReady: ()=>{ ready=true; },
+      onStateChange: e=>{
+        document.getElementById("playBtn").textContent = e.data===1 ? "ПАУЗА" : "ПУСК";
+        if(e.data===1) startProg(); else stopProg();
+      }
+    }
+  });
+}
+
+function loadVideo(){
+  const url = document.getElementById("urlInput").value;
+  const m = url.match(/(?:v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+  if(m){ vidId=m[1]; player.loadVideoById(vidId); }
+}
+
+function togglePlay(){ player.getPlayerState()===1 ? player.pauseVideo() : player.playVideo(); }
+function seekRel(s){ player.seekTo(player.getCurrentTime()+s, true); }
+function seekClick(e){
+  const r = document.getElementById("progressWrap").getBoundingClientRect();
+  player.seekTo(((e.clientX-r.left)/r.width)*player.getDuration(), true);
+}
+function chSpeed(d){
+  spdIdx = Math.max(0, Math.min(SPEEDS.length-1, spdIdx+d));
+  if(ready) player.setPlaybackRate(SPEEDS[spdIdx]);
+  document.getElementById("speedDisp").textContent = SPEEDS[spdIdx]+"x";
+}
+function startProg(){
+  stopProg();
+  progTimer = setInterval(()=>{
+    const c=player.getCurrentTime()||0, d=player.getDuration()||1;
+    document.getElementById("progressFill").style.width = (c/d*100)+"%";
+    document.getElementById("timeDisp").textContent = fmt(c)+" / "+fmt(d);
+  },500);
+}
+function stopProg(){ if(progTimer) clearInterval(progTimer); }
+function fmt(s){ s=Math.floor(s); return Math.floor(s/60)+":"+String(s%60).padStart(2,"0"); }
+
+function setAnchor(){
+  const t = player.getCurrentTime();
+  anchorTime = Math.floor(Math.max(0, t-3));
+  player.seekTo(Math.max(0, t-5), true);
+  player.setPlaybackRate(0.5); spdIdx=1;
+  document.getElementById("speedDisp").textContent="0.5x";
+  player.playVideo();
+  curStep=0; sel={}; renderStep();
+}
+
+function renderStep(){
+  if(curStep<0) return;
+  const step = STEPS[curStep];
+  document.getElementById("stepLabel").textContent = step.label;
+  document.getElementById("backBtn").style.display = "block";
+  document.getElementById("saveBtn").style.display = "none";
+  const container = document.getElementById("step-btns");
+  container.innerHTML = "";
+  step.opts.forEach(opt=>{
+    const b = document.createElement("button");
+    b.className = "sbtn "+(opt.cls||"");
+    b.textContent = opt.label;
+    b.onclick = ()=> pick(step.key, opt.code);
+    container.appendChild(b);
+  });
+}
+
+function pick(key, code){
+  sel[key] = code;
+  updateCode();
+  if(curStep < STEPS.length-1){ curStep++; renderStep(); }
+  else {
+    document.getElementById("step-btns").innerHTML="";
+    document.getElementById("saveBtn").style.display="block";
+    document.getElementById("stepLabel").textContent="✅ Готово";
+  }
+}
+
+function updateCode(){
+  document.getElementById("codeDisp").textContent = (sel.fighter||"")+(sel.init||"")+(sel.weapon||"")+(sel.zone||"")+(sel.result||"");
+}
+
+function saveEvent(){
+  events.push({ id: Date.now(), fighter: sel.fighter==="B" ? "Blue" : "Red", time: anchorTime, code: document.getElementById("codeDisp").textContent, link: "https://youtu.be/"+vidId+"?t="+anchorTime });
+  spdIdx=3; player.setPlaybackRate(1); document.getElementById("speedDisp").textContent="1x";
+  renderEvents(); resetTag();
+}
+
+function resetTag(){
+  curStep=-1; sel={}; document.getElementById("step-btns").innerHTML="";
+  document.getElementById("saveBtn").style.display="none"; document.getElementById("backBtn").style.display="none";
+  document.getElementById("codeDisp").textContent="—"; document.getElementById("stepLabel").textContent="Ожидание якоря...";
+}
+
+function goBack(){
+  if(curStep<=0){ spdIdx=3; player.setPlaybackRate(1); document.getElementById("speedDisp").textContent="1x"; resetTag(); }
+  else { curStep--; delete sel[STEPS[curStep].key]; renderStep(); }
+}
+
+function renderEvents(){
+  const grid = document.getElementById("events-grid"); grid.innerHTML="";
+  document.getElementById("evCount").textContent = events.length;
+  events.slice().reverse().forEach(ev=>{
+    const card = document.createElement("div");
+    card.className = "ecard "+ev.fighter.toLowerCase();
+    card.innerHTML = `<div class="ecard-top"><span>${ev.code}</span><span>${fmt(ev.time)}</span></div><a class="ecard-link" href="${ev.link}" target="_blank">▶ Повтор</a><button class="del-btn" onclick="delEv(${ev.id})">✕</button>`;
+    grid.appendChild(card);
+  });
+}
+
+function delEv(id){ events=events.filter(x=>x.id!==id); renderEvents(); }
+function dlJSON(){
+  const blob = new Blob([JSON.stringify(events,null,2)],{type:"application/json"});
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "tkd_report.json"; a.click();
+}
+
+window.addEventListener("keydown", e=>{
+  if(document.activeElement.tagName==="INPUT") return;
+  if(e.code==="Space"){ e.preventDefault(); curStep<0 ? setAnchor() : togglePlay(); }
+  if(e.code==="Backspace") goBack();
+});
+</script>
+</body>
+</html>
